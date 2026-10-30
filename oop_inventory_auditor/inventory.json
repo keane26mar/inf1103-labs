@@ -1,0 +1,26 @@
+[
+    {
+        "product_id": "3",
+        "name": "hello",
+        "price": 60.0,
+        "stock": 20
+    },
+    {
+        "product_id": "5",
+        "name": "helloworld2",
+        "price": 60.0,
+        "stock": 24
+    },
+    {
+        "product_id": "21",
+        "name": "corndogs",
+        "price": 110.0,
+        "stock": 10
+    },
+    {
+        "product_id": "13",
+        "name": "veggies",
+        "price": 100.0,
+        "stock": 10
+    }
+]
