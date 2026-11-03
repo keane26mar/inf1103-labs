@@ -1,26 +1,26 @@
 [
     {
+        "product_id": "1",
+        "name": "watch",
+        "price": 10.0,
+        "stock": 8,
+        "type": "physical",
+        "weight": 10.0
+    },
+    {
+        "product_id": "2",
+        "name": "software",
+        "price": 20.0,
+        "stock": 3,
+        "type": "digital",
+        "download_size": 100.0
+    },
+    {
         "product_id": "3",
-        "name": "hello",
-        "price": 60.0,
-        "stock": 20
-    },
-    {
-        "product_id": "5",
-        "name": "helloworld2",
-        "price": 60.0,
-        "stock": 24
-    },
-    {
-        "product_id": "21",
-        "name": "corndogs",
-        "price": 110.0,
-        "stock": 10
-    },
-    {
-        "product_id": "13",
-        "name": "veggies",
-        "price": 100.0,
-        "stock": 10
+        "name": "bottled water",
+        "price": 40.0,
+        "stock": 20,
+        "type": "physical",
+        "weight": 5.0
     }
 ]
