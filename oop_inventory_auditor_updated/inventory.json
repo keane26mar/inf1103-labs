@@ -1,0 +1,13 @@
+[
+    {
+        "product_id": "1001",
+        "name": "milk",
+        "price": 2.0,
+        "stock": 100,
+        "supplier_id": "1",
+        "supplier_name": "cash",
+        "supplier_email": "cash@gmail.com",
+        "type": "physical",
+        "weight": 10.0
+    }
+]

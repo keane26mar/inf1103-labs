@@ -1,0 +1,15 @@
+[
+    {
+        "order_id": "ORD-001",
+        "order_lines": []
+    },
+    {
+        "order_id": "ORD-002",
+        "order_lines": [
+            {
+                "product_id": "1001",
+                "quantity": 10
+            }
+        ]
+    }
+]
