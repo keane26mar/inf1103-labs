@@ -1,195 +1,190 @@
-import json
-import os
-from inventory import Inventory
-from product import PhysicalProduct, DigitalProduct
 from supplier import Supplier
+from inventory import Inventory, load_products
 from order import Order
+from order_manager import OrderManager
+from discount import NoDiscount, PercentageDiscount, BulkDiscount, StudentDiscount
 
-def save_orders_to_file(orders: list[Order], filename: str = "orders.json") -> None:
-    """Saves all customer orders to a JSON file."""
-    data = []
-    for order in orders:
-        lines_data = []
-        for line in order.order_lines:
-            lines_data.append({
-                "product_id": line.product.product_id,
-                "quantity": line.quantity
-            })
-        data.append({
-            "order_id": order.order_id,
-            "order_lines": lines_data
-        })
-    with open(filename, "w") as f:
-        json.dump(data, f, indent=4)
-    print(f"Orders successfully saved to {filename}")
-
-
-def load_orders_from_file(inventory: Inventory, filename: str = "orders.json") -> list[Order]:
-    """Loads orders from a JSON file, linking them back to actual Product objects in inventory."""
-    if not os.path.exists(filename):
-        return []
-    
-    loaded_orders = []
-    try:
-        with open(filename, "r") as f:
-            data = json.load(f)
-            for item in data:
-                order = Order(item["order_id"])
-                for line_data in item["order_lines"]:
-                    product = inventory.find_product(line_data["product_id"])
-                    if product:
-                        order.add_order_line(product, line_data["quantity"])
-                loaded_orders.append(order)
-        print(f"Orders successfully loaded from {filename}")
-    except Exception as e:
-        print(f"Error loading orders: {e}")
-    
-    return loaded_orders
-
+def get_positive_float(prompt: str) -> float:
+    while True:
+        try:
+            value = float(input(prompt))
+            if value <= 0:
+                print("Please enter a number greater than zero.")
+                continue
+            return value
+        except ValueError:
+            print("Please enter a valid number, e.g. 12.50")
 
 def main() -> None:
+    supplier = Supplier("S001", "Global Goods", "contact@globalgoods.com")
     inventory = Inventory()
-    inventory.load_from_file()
+    
+    # Initialize OrderManager with JSON persistence
+    order_manager = OrderManager("orders.json")
 
-    # Load existing orders from file at startup
-    orders: list[Order] = load_orders_from_file(inventory)
+    # Load products from CSV and restore existing persisted orders from orders.json
+    load_products("products.csv", inventory, supplier)
+    order_manager.load_from_json(inventory)
 
     while True:
-        print("\n--- Inventory & Order Management System (Lab 8) ---")
+        print("\n--- Inventory & Order Management System (Lab 9) ---")
         print("1. Display all products")
-        print("2. Add a product (Physical/Digital)")
-        print("3. Remove a product from Inventory (Aggregation test)")
-        print("4. Update stock")
-        print("5. Create a Customer Order (Composition test)")
-        print("6. View Existing Orders")
-        print("7. Save inventory and orders")
-        print("8. Exit")
-
-        choice = input("Enter your choice (1-8): ").strip()
-
+        print("2. Create an order with Strategy Discount")
+        print("3. View all orders")
+        print("4. View a single order")
+        print("5. Update an order")
+        print("6. Delete an order")
+        print("7. Exit")
+        
+        choice = input("Enter your choice (1-7): ").strip()
+        
         if choice == "1":
             inventory.display_all()
-
-        elif choice == "2":
-            print("\n--- Enter Supplier Details ---")
-            supplier_id = input("Enter Supplier ID: ").strip()
-            supplier_name = input("Enter Supplier Name: ").strip()
-            supplier_email = input("Enter Supplier Contact Email: ").strip()
             
-            selected_supplier = Supplier(supplier_id, supplier_name, supplier_email)
-
-            print("\nSelect Product Type:")
-            print("1. Physical Product")
-            print("2. Digital Product")
-            type_choice = input("Enter type choice (1-2): ").strip()
-
-            if type_choice not in ["1", "2"]:
-                print("Error: Invalid product type selection.")
+        elif choice == "2":
+            if not inventory.products:
+                print("No products available in inventory.")
                 continue
-
-            product_id = input("Enter Product ID: ").strip()
-            name = input("Enter Product Name: ").strip()
+            
+            # Validate Order ID
+            order_id = input("Enter Order ID (e.g., ORD-001): ").strip()
+            if not order_id:
+                print("Error: Order ID cannot be empty.")
+                continue
+            
+            if order_manager.find_order(order_id):
+                print(f"Error: Order ID '{order_id}' already exists.")
+                continue
+            
+            # Get Product ID from CSV
+            prod_id_input = input("Enter Product ID from CSV (e.g., P001): ").strip()
+            
+            # Validation: Prevent Order ID and Product ID from being the same
+            if order_id == prod_id_input:
+                print(f"Error: Order ID and Product ID cannot both be '{order_id}'. Access denied.")
+                continue
+            
+            selected_product = inventory.find_product(prod_id_input)
+            
+            if not selected_product:
+                print(f"Error: Product ID '{prod_id_input}' does not exist in inventory/products.csv! Access denied.")
+                continue
+            
             try:
-                price = float(input("Enter Product Price: "))
-                stock = int(input("Enter Initial Stock Quantity: "))
-                
-                if price < 0 or stock < 0:
-                    print("Error: Price and stock cannot be negative.")
+                quantity = int(input("Enter quantity: "))
+                if quantity <= 0:
+                    print("Quantity must be greater than zero.")
                     continue
-                
-                if inventory.find_product(product_id):
-                    print("Error: Product ID already exists.")
-                    continue
-
-                if type_choice == "1":
-                    weight = float(input("Enter Product Weight (kg): "))
-                    new_product = PhysicalProduct(product_id, name, price, stock, selected_supplier, weight)
-                else:
-                    download_size = float(input("Enter Download Size (MB): "))
-                    new_product = DigitalProduct(product_id, name, price, stock, selected_supplier, download_size)
-
-                inventory.add_product(new_product)
-                print("Product added successfully with associated supplier!")
             except ValueError:
-                print("Error: Invalid numeric input provided.")
+                print("Invalid input. Please enter a valid whole number for quantity.")
+                continue
+            
+            # Create order, add line, and calculate subtotal
+            order = Order(order_id)
+            order.add_order_line(selected_product, quantity)
+            
+            print(f"Subtotal before discount: ${order.calculate_total():.2f}")
+            
+            # Choose discount strategy manually
+            print("\nSelect Discount Strategy:")
+            print("1. No Discount")
+            print("2. Percentage Discount (10%)")
+            print("3. Bulk Discount ($20 off if >= $200)")
+            print("4. Student Discount (15% off)")
+            
+            d_choice = input("Enter choice (1-4): ").strip()
+            if d_choice == "1":
+                order.set_discount(NoDiscount())
+            elif d_choice == "2":
+                order.set_discount(PercentageDiscount(10.0))
+            elif d_choice == "3":
+                order.set_discount(BulkDiscount(200.0, 20.0))
+            elif d_choice == "4":
+                order.set_discount(StudentDiscount(15.0))
+            else:
+                print("Invalid choice. Defaulting to No Discount.")
+            
+            print(f"Final Order Total after discount: ${order.calculate_total():.2f}")
+            
+            # Save order to manager and update orders.json automatically
+            order_manager.add_order(order)
+            print(f"Order '{order_id}' created and saved successfully!")
 
         elif choice == "3":
-            product_id = input("Enter Product ID to remove from inventory: ").strip()
-            product = inventory.find_product(product_id)
-            if product:
-                inventory.remove_product(product_id)
-                print(f"Product '{product.name}' removed from inventory.")
-            else:
-                print("Product not found in inventory.")
-
+            order_manager.display_all_orders()
+            
         elif choice == "4":
-            product_id = input("Enter Product ID to update stock: ").strip()
-            product = inventory.find_product(product_id)
-            if product:
-                try:
-                    qty = int(input("Enter quantity to add/reduce: "))
-                    product.update_stock(qty)
-                    print(f"Stock updated successfully. New stock: {product.stock}")
-                except ValueError:
-                    print("Error: Invalid quantity.")
+            # VIEW SINGLE ORDER
+            order_id = input("Enter Order ID to view: ").strip()
+            order = order_manager.find_order(order_id)
+            if order:
+                print(f"\n=== Order Details: {order.order_id} ===")
+                print("  Items:")
+                for line in order.order_lines:
+                    print(f"    - {line.product.name} (ID: {line.product.product_id}) | Qty: {line.quantity} | Subtotal: ${line.calculate_subtotal():.2f}")
+                print(f"  Final Total (after discount): ${order.calculate_total():.2f}")
             else:
-                print("Product not found.")
+                print(f"Error: Order ID '{order_id}' not found.")
 
         elif choice == "5":
-            if not inventory.products:
-                print("No products available to order.")
+            # UPDATE ORDER
+            order_id = input("Enter Order ID to update: ").strip()
+            order = order_manager.find_order(order_id)
+            if not order:
+                print(f"Error: Order '{order_id}' not found.")
                 continue
             
-            order_id = input("Enter Order ID (e.g., ORD-001): ").strip()
-            new_order = Order(order_id)
+            print(f"Updating Order: {order.order_id}")
+            print("1. Update quantity of existing item")
+            print("2. Change discount strategy")
+            u_choice = input("Enter choice (1-2): ").strip()
             
-            while True:
-                inventory.display_all()
-                p_id = input("Enter Product ID to add to order (or type 'done'): ").strip()
-                if p_id.lower() == 'done':
-                    break
+            if u_choice == "1":
+                if order.order_lines:
+                    try:
+                        new_qty = int(input("Enter new quantity: "))
+                        if new_qty <= 0:
+                            print("Quantity must be greater than zero.")
+                            continue
+                        order.order_lines[0].quantity = new_qty
+                        order_manager.save_to_json()  # Persist changes
+                        print("Order quantity updated successfully!")
+                    except ValueError:
+                        print("Invalid quantity input.")
+            elif u_choice == "2":
+                print("\nSelect New Discount Strategy:")
+                print("1. No Discount")
+                print("2. Percentage Discount (10%)")
+                print("3. Bulk Discount ($20 off if >= $200)")
+                print("4. Student Discount (15% off)")
+                d_choice = input("Enter choice (1-4): ").strip()
+                if d_choice == "1":
+                    order.set_discount(NoDiscount())
+                elif d_choice == "2":
+                    order.set_discount(PercentageDiscount(10.0))
+                elif d_choice == "3":
+                    order.set_discount(BulkDiscount(200.0, 20.0))
+                elif d_choice == "4":
+                    order.set_discount(StudentDiscount(15.0))
                 
-                product = inventory.find_product(p_id)
-                if not product:
-                    print("Product not found.")
-                    continue
-                
-                try:
-                    qty = int(input("Enter quantity ordered: "))
-                    if qty <= 0:
-                        print("Quantity must be greater than zero.")
-                        continue
-                    new_order.add_order_line(product, qty)
-                    print("Order line added.")
-                except ValueError:
-                    print("Invalid quantity.")
-
-            if new_order.order_lines:
-                orders.append(new_order)
-                new_order.display_order()
-                # Automatically save orders to file upon creation
-                save_orders_to_file(orders)
+                order_manager.save_to_json()  # Persist changes
+                print("Discount strategy updated successfully!")
             else:
-                print("Order cancelled (no lines added).")
+                print("Invalid update choice.")
 
         elif choice == "6":
-            if not orders:
-                print("No active orders found.")
+            # DELETE ORDER
+            order_id = input("Enter Order ID to delete: ").strip()
+            if order_manager.delete_order(order_id):
+                print(f"Order '{order_id}' successfully deleted.")
             else:
-                for order in orders:
-                    order.display_order()
+                print(f"Error: Order ID '{order_id}' not found.")
 
         elif choice == "7":
-            inventory.save_to_file()
-            save_orders_to_file(orders)
-
-        elif choice == "8":
-            inventory.save_to_file()
-            save_orders_to_file(orders)
-            print("Exiting program. Goodbye!")
+            print("Exiting application.")
             break
         else:
-            print("Error: Invalid option.")
+            print("Invalid option. Please choose between 1 and 7.")
 
 if __name__ == "__main__":
     main()

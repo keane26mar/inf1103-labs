@@ -1,34 +1,31 @@
 from product import Product
+from discount import DiscountStrategy, NoDiscount
 
 class OrderLine:
-    """Represents an item line within an order (Composition part)."""
     def __init__(self, product: Product, quantity: int) -> None:
+        if quantity <= 0:
+            raise ValueError("OrderLine quantity must be greater than zero.")
         self.product: Product = product
         self.quantity: int = quantity
 
     def calculate_subtotal(self) -> float:
-        """Calculates the subtotal for this order line."""
         return self.product.price * self.quantity
 
-
 class Order:
-    """Represents a customer order that creates and manages its OrderLines (Composition whole)."""
-    def __init__(self, order_id: str) -> None:
+    def __init__(self, order_id: str, discount_strategy: DiscountStrategy | None = None) -> None:
         self.order_id: str = order_id
         self.order_lines: list[OrderLine] = []
+        self.discount: DiscountStrategy = discount_strategy if discount_strategy else NoDiscount()
 
     def add_order_line(self, product: Product, quantity: int) -> None:
-        """Creates and manages internal OrderLine objects (Composition)."""
-        order_line = OrderLine(product, quantity)
-        self.order_lines.append(order_line)
+        line = OrderLine(product, quantity)
+        self.order_lines.append(line)
+
+    def set_discount(self, discount_strategy: DiscountStrategy) -> None:
+        """Dynamically updates the discount strategy."""
+        self.discount = discount_strategy
 
     def calculate_total(self) -> float:
-        """Calculates total order cost across all lines."""
-        return sum(line.calculate_subtotal() for line in self.order_lines)
-
-    def display_order(self) -> None:
-        print(f"\n--- Order ID: {self.order_id} ---")
-        for line in self.order_lines:
-            print(f" - {line.product.name} x {line.quantity} | Subtotal: ${line.calculate_subtotal():.2f}")
-        print(f"Total Order Cost: ${self.calculate_total():.2f}")
-        print("-----------------------------")
+        """Delegates calculation entirely to the active discount strategy[cite: 3, 4]."""
+        total = sum(line.calculate_subtotal() for line in self.order_lines)
+        return self.discount.apply(total)

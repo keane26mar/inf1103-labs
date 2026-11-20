@@ -4,11 +4,13 @@
         "order_lines": []
     },
     {
-        "order_id": "ORD-002",
+        "order_id": "ORD-003",
         "order_lines": [
             {
-                "product_id": "1001",
-                "quantity": 10
+                "product_id": "P001",
+                "product_name": "Desk Lamp",
+                "product_price": 25.0,
+                "quantity": 5
             }
         ]
     }
